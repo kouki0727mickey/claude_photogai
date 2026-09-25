@@ -2,7 +2,7 @@ import { Compositor, type LiveOverlay } from './compositor';
 import { Doc } from './doc';
 import { applyAdjustments, floodFill, hexToRgb, rgbToHex, type Adjustments } from './filters';
 import { History } from './history';
-import { exportImage, fileToImage, loadProject, PROJECT_EXT, saveProject } from './io';
+import { exportImage, fileToImage, loadProject, saveProject } from './io';
 import {
   BLEND_MODES,
   cloneLayer,
@@ -13,6 +13,7 @@ import {
   newRasterLayer,
   newTextLayer,
   renderText,
+  setFontLoadedHandler,
   textOrigin,
   touch,
   type Layer,
@@ -101,8 +102,8 @@ export class App {
     this.fit();
     this.setTool('brush');
     this.syncAll();
-    // Web フォントが後から届いたら、文字レイヤーを描き直す
-    document.fonts.addEventListener('loadingdone', () => this.rerenderTexts());
+    // フォントが後から届いたら、文字レイヤーを描き直す
+    setFontLoadedHandler(() => this.rerenderTexts());
     window.addEventListener('beforeunload', (e) => {
       if (this.dirty) e.preventDefault();
     });
@@ -514,7 +515,7 @@ export class App {
       const key = e.key.toLowerCase();
       if (mod && key === 's') {
         e.preventDefault();
-        this.save();
+        void this.save();
         return;
       }
       if (isTyping(e.target)) return;
@@ -557,10 +558,10 @@ export class App {
     const actions: Record<string, () => void> = {
       new: () => this.openNewDialog(),
       open: () => $<HTMLInputElement>('#file-open').click(),
-      save: () => this.save(),
+      save: () => void this.save(),
       'add-image': () => $<HTMLInputElement>('#file-image').click(),
-      'export-png': () => void exportImage(this.doc, 'png').catch((err) => this.toast(String(err))),
-      'export-jpeg': () => void exportImage(this.doc, 'jpeg').catch((err) => this.toast(String(err))),
+      'export-png': () => void this.exportAs('png'),
+      'export-jpeg': () => void this.exportAs('jpeg'),
       undo: () => this.undo(),
       redo: () => this.redo(),
       adjust: () => this.openAdjustDialog(),
@@ -832,10 +833,23 @@ export class App {
     }
   }
 
-  private save(): void {
-    saveProject(this.doc);
-    this.dirty = false;
-    this.toast(`${this.doc.name}${PROJECT_EXT} を保存しました`);
+  private async save(): Promise<void> {
+    try {
+      if (!(await saveProject(this.doc))) return;
+      this.dirty = false;
+      this.syncAll();
+      this.toast('保存しました');
+    } catch (err) {
+      this.toast(`保存できませんでした: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  private async exportAs(format: 'png' | 'jpeg'): Promise<void> {
+    try {
+      if (await exportImage(this.doc, format)) this.toast('書き出しました');
+    } catch (err) {
+      this.toast(`書き出せませんでした: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   // ───────────── ダイアログ ─────────────

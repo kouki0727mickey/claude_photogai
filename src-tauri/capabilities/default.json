@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "メインウィンドウに許可する操作。保存ダイアログと、そこで選んだファイルへの書き込みだけ",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-save", "fs:allow-write-file"]
+}

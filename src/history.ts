@@ -1,5 +1,5 @@
 import type { Doc } from './doc';
-import { copyCanvas, type Layer } from './layer';
+import { copyCanvas, renderText, type Layer } from './layer';
 
 type LayerState = Omit<Layer, 'canvas'> & { bitmap: HTMLCanvasElement };
 
@@ -89,11 +89,16 @@ export class History {
   }
 
   private restore(s: Snapshot): void {
-    this.doc.layers = s.layers.map(({ bitmap, ...meta }) => ({
-      ...meta,
-      text: meta.text && { ...meta.text },
-      canvas: copyCanvas(bitmap),
-    }));
+    this.doc.layers = s.layers.map(({ bitmap, ...meta }) => {
+      const layer: Layer = { ...meta, text: meta.text && { ...meta.text }, canvas: copyCanvas(bitmap) };
+      if (layer.text) {
+        // 保存時にはフォントが届いていなかったかもしれないので、文字は設定から描き直す。
+        // 中身は同じ設定なので version は戻して、次の履歴で複製しないようにする
+        renderText(layer);
+        layer.version = meta.version;
+      }
+      return layer;
+    });
     this.doc.activeId = this.doc.indexOf(s.activeId) >= 0 ? s.activeId : (this.doc.layers.at(-1)?.id ?? 0);
   }
 }

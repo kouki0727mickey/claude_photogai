@@ -49,12 +49,17 @@ export const BLEND_MODES: [GlobalCompositeOperation, string][] = [
   ['luminosity', '輝度'],
 ];
 
-export const FONTS: [string, string][] = [
-  ['"Noto Sans JP", sans-serif', 'Noto Sans JP（ゴシック）'],
-  ['"Dela Gothic One", sans-serif', 'Dela Gothic One（極太）'],
-  ['"M PLUS Rounded 1c", sans-serif', 'M PLUS Rounded 1c（丸ゴシック）'],
-  ['"Zen Old Mincho", serif', 'Zen Old Mincho（明朝）'],
+/** [font-family, 表示名, 太字のときの太さ]。同梱していない太さを指定すると、ブラウザが無理に太らせて崩れる */
+export const FONTS: [string, string, number][] = [
+  ['"Noto Sans JP", sans-serif', 'Noto Sans JP（ゴシック）', 900],
+  ['"Dela Gothic One", sans-serif', 'Dela Gothic One（極太）', 400],
+  ['"M PLUS Rounded 1c", sans-serif', 'M PLUS Rounded 1c（丸ゴシック）', 900],
+  ['"Zen Old Mincho", serif', 'Zen Old Mincho（明朝）', 900],
 ];
+
+function boldWeight(fontFamily: string): number {
+  return FONTS.find(([family]) => family === fontFamily)?.[2] ?? 700;
+}
 
 export const DEFAULT_TEXT: TextProps = {
   text: 'テキスト',
@@ -135,12 +140,23 @@ function textPadding(t: TextProps): number {
   return t.strokeWidth + Math.ceil(t.size * 0.1);
 }
 
+let onFontLoaded: (() => void) | null = null;
+
+/** 文字レイヤーのフォントが読み込み終わったときに呼ぶ処理を登録する */
+export function setFontLoadedHandler(handler: () => void): void {
+  onFontLoaded = handler;
+}
+
 export function renderText(layer: Layer): void {
   const t = layer.text;
   if (!t) return;
   const ctx = ctxOf(layer.canvas);
   ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-  ctx.font = `${t.bold ? '900' : '400'} ${t.size}px ${t.fontFamily}`;
+  ctx.font = `${t.bold ? boldWeight(t.fontFamily) : 400} ${t.size}px ${t.fontFamily}`;
+  // フォントは文字の範囲ごとに分かれているので、使う文字の分を読み込ませ、届いたら描き直してもらう
+  if (!document.fonts.check(ctx.font, t.text)) {
+    document.fonts.load(ctx.font, t.text).then(() => onFontLoaded?.(), () => {});
+  }
   ctx.textBaseline = 'top';
   ctx.lineJoin = 'round';
   const pad = textPadding(t);

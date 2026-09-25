@@ -11,9 +11,20 @@ npm run dev      # 開発サーバー（http://localhost:5173）
 npm run build    # 型チェックと本番ビルド（dist/）
 ```
 
-main に push すると、GitHub Actions で GitHub Pages に公開される（リポジトリの Settings → Pages で Source を「GitHub Actions」にしておく）。
+main に push すると、GitHub Actions で次の 2 つが自動で作られる。
 
-## できること（v0.1）
+- **ブラウザ版**: GitHub Pages に公開（リポジトリの Settings → Pages で Source を「GitHub Actions」にしておく）
+- **Windows 版**: インストーラー（`.exe`）。Actions の「Desktop build (Windows)」の実行結果の Artifacts からダウンロードできる。`v0.2.0` のようなタグを push すると Releases にも公開される
+
+### Windows 版について
+
+- [Tauri](https://tauri.app/) でブラウザ版を包んでいる。表示には Windows に入っている WebView2 を使う
+- 署名していないので、初回のインストールで「Windows によって PC が保護されました」と出る。「詳細情報」→「実行」で進める
+- 保存・書き出しは、ダウンロードではなく保存ダイアログになる
+- 手元で動かすには Rust と Tauri の準備が必要（[Tauri の前提条件](https://tauri.app/start/prerequisites/)）。`npm run tauri dev` で開発版、`npm run tauri build` でインストーラーを作る
+- フォントはアプリに同梱している（オフラインでも同じ見た目）。どれも SIL Open Font License 1.1
+
+## できること
 
 | 分類 | 機能 |
 |---|---|
@@ -53,4 +64,6 @@ main に push すると、GitHub Actions で GitHub Pages に公開される（�
 | `src/history.ts` | 元に戻す・やり直す |
 | `src/compositor.ts` | レイヤーを重ねて 1 枚にする |
 | `src/filters.ts` | 色調補正、塗りつぶし |
-| `src/io.ts` | 開く・保存・書き出し |
+| `src/io.ts` | 開く・保存・書き出し（デスクトップ版では保存ダイアログ） |
+| `src/fonts.ts` | 同梱フォントの読み込み |
+| `src-tauri/` | Windows 版（Tauri）の設定 |

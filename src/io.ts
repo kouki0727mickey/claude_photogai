@@ -29,13 +29,35 @@ interface ProjectFile {
   layers: ProjectLayer[];
 }
 
-export function download(blob: Blob, filename: string): void {
+/** デスクトップ版（Tauri）で動いているか */
+export const isDesktop = '__TAURI_INTERNALS__' in window;
+
+const FILTERS: Record<string, { name: string; extensions: string[] }> = {
+  png: { name: 'PNG 画像', extensions: ['png'] },
+  jpg: { name: 'JPEG 画像', extensions: ['jpg', 'jpeg'] },
+  json: { name: 'claude_photogai プロジェクト', extensions: ['json'] },
+};
+
+/**
+ * ファイルを保存する。ブラウザ版はダウンロード、デスクトップ版は保存ダイアログ。
+ * 保存したら true、キャンセルしたら false
+ */
+export async function download(blob: Blob, filename: string): Promise<boolean> {
+  if (isDesktop) {
+    const [{ save }, { writeFile }] = await Promise.all([import('@tauri-apps/plugin-dialog'), import('@tauri-apps/plugin-fs')]);
+    const filter = FILTERS[filename.split('.').pop() ?? ''];
+    const path = await save({ defaultPath: filename, filters: filter ? [filter] : [] });
+    if (!path) return false;
+    await writeFile(path, new Uint8Array(await blob.arrayBuffer()));
+    return true;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
 }
 
 function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
@@ -44,13 +66,13 @@ function toBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Prom
   );
 }
 
-export async function exportImage(doc: Doc, format: 'png' | 'jpeg'): Promise<void> {
+export async function exportImage(doc: Doc, format: 'png' | 'jpeg'): Promise<boolean> {
   const canvas = format === 'jpeg' ? flatten(doc, '#ffffff') : flatten(doc);
   const blob = await toBlob(canvas, `image/${format}`, format === 'jpeg' ? 0.92 : undefined);
-  download(blob, `${doc.name}.${format === 'jpeg' ? 'jpg' : 'png'}`);
+  return download(blob, `${doc.name}.${format === 'jpeg' ? 'jpg' : 'png'}`);
 }
 
-export function saveProject(doc: Doc): void {
+export function saveProject(doc: Doc): Promise<boolean> {
   const file: ProjectFile = {
     app: APP_ID,
     version: FORMAT_VERSION,
@@ -70,7 +92,7 @@ export function saveProject(doc: Doc): void {
       data: l.canvas.toDataURL('image/png'),
     })),
   };
-  download(new Blob([JSON.stringify(file)], { type: 'application/json' }), `${doc.name}${PROJECT_EXT}`);
+  return download(new Blob([JSON.stringify(file)], { type: 'application/json' }), `${doc.name}${PROJECT_EXT}`);
 }
 
 export async function fileToImage(file: Blob): Promise<ImageBitmap> {

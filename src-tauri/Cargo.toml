@@ -1,0 +1,19 @@
+[package]
+name = "claude-photogai"
+version = "0.1.0"
+description = "サムネイル・イラスト制作用の画像編集アプリ"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
